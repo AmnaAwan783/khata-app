@@ -1,0 +1,571 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    .wholesaler-form-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .calculation-box {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+        border-left: 4px solid #0d6efd;
+    }
+
+    .calculation-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 8px 0;
+        font-size: 1rem;
+    }
+
+    .calculation-label {
+        font-weight: 500;
+        color: #555;
+    }
+
+    .calculation-value {
+        font-weight: bold;
+        color: #0d6efd;
+    }
+
+    .remaining-balance {
+        font-size: 1.2rem;
+        color: #28a745;
+        font-weight: bold;
+    }
+
+    .input-group-text {
+        background-color: #e9ecef;
+        border: 1px solid #dee2e6;
+    }
+
+    .form-control:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+
+    .autocomplete-wrapper {
+        position: relative;
+    }
+
+    .autocomplete-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+
+    .autocomplete-list.active {
+        display: block;
+    }
+
+    .autocomplete-item {
+        padding: 10px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .autocomplete-item:hover {
+        background-color: #e9ecef;
+    }
+
+    .autocomplete-item.selected {
+        background-color: #0d6efd;
+        color: white;
+    }
+
+    .btn-add-wholesaler {
+        margin-top: 10px;
+        width: 100%;
+    }
+
+    .section-divider {
+        margin: 30px 0;
+        border-top: 2px solid #dee2e6;
+        padding-top: 20px;
+    }
+
+    .wholesaler-card {
+        margin-bottom: 15px;
+        transition: transform 0.2s;
+    }
+
+    .wholesaler-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .wholesaler-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+    }
+
+    .wholesaler-details h5 {
+        margin: 0;
+        color: #333;
+    }
+
+    .wholesaler-details small {
+        color: #666;
+    }
+
+    .balance-badge {
+        font-size: 0.9rem;
+        padding: 8px 12px;
+        border-radius: 6px;
+    }
+
+    .balance-positive {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .balance-negative {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .balance-zero {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+
+    .action-buttons a,
+    .action-buttons button {
+        padding: 5px 10px;
+        font-size: 0.85rem;
+    }
+</style>
+
+<div class="container-fluid">
+    <h1 class="mb-4">Wholesaler Transactions</h1>
+
+    <!-- Display flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <!-- Left Column: Add Transaction Form -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📝 Add Wholesaler Transaction</h5>
+                </div>
+                <div class="card-body wholesaler-form-container">
+                    <form method="POST" id="transactionForm">
+                        <!-- Wholesaler Selection -->
+                        <div class="mb-3">
+                            <label class="form-label">Wholesaler <span class="text-danger">*</span></label>
+                            <div class="autocomplete-wrapper">
+                                <input 
+                                    type="text" 
+                                    id="wholesalerSearch" 
+                                    class="form-control" 
+                                    placeholder="Search by name or phone..."
+                                    autocomplete="off"
+                                    oninput="searchWholesalers()">
+                                <input type="hidden" name="wholesaler_id" id="wholesalerId" required>
+                                <div id="wholesalerList" class="autocomplete-list"></div>
+                            </div>
+                            <small class="form-text text-muted">Start typing to search wholesalers</small>
+                        </div>
+
+                        <!-- Selected Wholesaler Display -->
+                        <div id="selectedWholesalerDisplay" style="display: none;" class="mb-3">
+                            <div class="alert alert-info mb-2">
+                                <strong>Selected:</strong> <span id="selectedWholesalerName"></span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearWholesalerSelection()">Change Wholesaler</button>
+                        </div>
+
+                        <!-- Quick Add Wholesaler Button -->
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-sm btn-outline-success w-100" data-bs-toggle="modal" data-bs-target="#addWholesalerModal">
+                                ➕ Add New Wholesaler
+                            </button>
+                        </div>
+                        
+                        <!-- Contact Picker Script -->
+                        <script src="{{ url_for('static', filename='js/contact_picker.js') }}"></script>
+
+                        <hr>
+
+                        <!-- Item Details -->
+                        <div class="mb-3">
+                            <label class="form-label">Item Name <span class="text-danger">*</span></label>
+                            <input 
+                                type="text" 
+                                name="item_name" 
+                                id="itemName"
+                                class="form-control" 
+                                placeholder="e.g., Medicine Box, Tablets, etc."
+                                required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Quantity <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input 
+                                    type="number" 
+                                    step="0.01" 
+                                    name="quantity" 
+                                    id="quantity" 
+                                    class="form-control" 
+                                    placeholder="0.00"
+                                    required 
+                                    min="0.01"
+                                    inputmode="decimal"
+                                    oninput="calculateTotal()">
+                                <span class="input-group-text">Units</span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Price per Unit <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">Rs</span>
+                                <input 
+                                    type="number" 
+                                    step="0.01" 
+                                    name="price_per_unit" 
+                                    id="pricePerUnit" 
+                                    class="form-control" 
+                                    placeholder="0.00"
+                                    required 
+                                    min="0.01"
+                                    inputmode="decimal"
+                                    oninput="calculateTotal()">
+                            </div>
+                        </div>
+
+                        <!-- Automatic Calculations -->
+                        <div class="calculation-box">
+                            <div class="calculation-row">
+                                <span class="calculation-label">Total Price:</span>
+                                <span class="calculation-value" id="totalPrice">Rs 0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Payment Info -->
+                        <div class="mb-3">
+                            <label class="form-label">Amount Paid</label>
+                            <div class="input-group">
+                                <span class="input-group-text">Rs</span>
+                                <input 
+                                    type="number" 
+                                    step="0.01" 
+                                    name="paid_amount" 
+                                    id="paidAmount" 
+                                    class="form-control" 
+                                    placeholder="0.00"
+                                    min="0"
+                                    inputmode="decimal"
+                                    oninput="calculateRemaining()">
+                            </div>
+                        </div>
+
+                        <!-- Remaining Balance Calculation -->
+                        <div class="calculation-box">
+                            <div class="calculation-row">
+                                <span class="calculation-label">Remaining Balance:</span>
+                                <span class="calculation-value" id="remainingBalance">Rs 0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="mb-3">
+                            <label class="form-label">Notes (Optional)</label>
+                            <textarea 
+                                name="notes" 
+                                id="notes"
+                                class="form-control" 
+                                rows="2" 
+                                placeholder="Add any notes or reference information..."></textarea>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            💾 Save Transaction
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Wholesalers List -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">📊 Wholesalers Overview</h5>
+                </div>
+                <div class="card-body">
+                    {% if wholesalers %}
+                        {% for wholesaler in wholesalers %}
+                            {% set total_bill = wholesaler.transactions | map(attribute='total_price') | sum %}
+                            {% set total_paid = wholesaler.transactions | map(attribute='paid_amount') | sum %}
+                            {% set balance = total_bill - total_paid %}
+                            
+                            <div class="card wholesaler-card border-0 shadow-sm">
+                                <div class="wholesaler-info">
+                                    <div class="wholesaler-details flex-grow-1">
+                                        <h5>{{ wholesaler.name }}</h5>
+                                        {% if wholesaler.phone %}
+                                            <small class="text-muted">📱 {{ wholesaler.phone }}</small>
+                                        {% endif %}
+                                        {% if wholesaler.address %}
+                                            <small class="text-muted d-block">📍 {{ wholesaler.address }}</small>
+                                        {% endif %}
+                                        <small class="text-muted d-block mt-1">
+                                            Transactions: {{ wholesaler.transactions | length }}
+                                        </small>
+                                    </div>
+                                    <div class="ms-3">
+                                        <div class="balance-badge {% if balance > 0 %}balance-negative{% elif balance < 0 %}balance-positive{% else %}balance-zero{% endif %}">
+                                            {% if balance > 0 %}
+                                                Due: Rs {{ "%.2f" | format(balance) }}
+                                            {% elif balance < 0 %}
+                                                Paid: Rs {{ "%.2f" | format(-balance) }}
+                                            {% else %}
+                                                Settled
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-light">
+                                    <div class="action-buttons">
+                                        <a href="{{ url_for('wholesaler_detail', id=wholesaler.id) }}" class="btn btn-sm btn-info text-white">View Details</a>
+                                        <a href="{{ url_for('delete_wholesaler', id=wholesaler.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="alert alert-info" role="alert">
+                            No wholesalers added yet. Click "Add New Wholesaler" to get started.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add New Wholesaler -->
+<div class="modal fade" id="addWholesalerModal" tabindex="-1" aria-labelledby="addWholesalerLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="addWholesalerLabel">Add New Wholesaler</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addWholesalerForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Wholesaler Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="newWholesalerName" required placeholder="Enter wholesaler name">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone Number</label>
+                        <div class="input-group">
+                            <input type="tel" class="form-control" id="newWholesalerPhone" placeholder="Enter phone number" inputmode="tel">
+                            <button 
+                                type="button" 
+                                class="btn btn-secondary" 
+                                id="pickWholesalerContactBtn"
+                                style="display: block !important;"
+                                data-contact-picker
+                                data-name-field="newWholesalerName"
+                                data-phone-field="newWholesalerPhone"
+                                title="Pick a contact from your phone contact list">
+                                📱 Pick from Contacts
+                            </button>
+                        </div>
+                        <small class="form-text text-muted" id="contactPickerWholesalerStatus"></small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <input type="text" class="form-control" id="newWholesalerAddress" placeholder="Enter address">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Add Wholesaler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let wholesalersCache = [];
+
+// Load wholesalers on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadWholesalers();
+    
+    // Initialize contact picker for add wholesaler modal
+    if (typeof initContactPickerButton !== 'undefined') {
+        try {
+            initContactPickerButton('pickWholesalerContactBtn', 'newWholesalerName', 'newWholesalerPhone');
+            console.log('Wholesaler contact picker button initialized');
+        } catch (error) {
+            console.error('Error initializing wholesaler contact picker:', error);
+        }
+    }
+    
+    // Update status message in modal
+    const statusEl = document.getElementById('contactPickerWholesalerStatus');
+    if (statusEl) {
+        if (typeof supportsContactPicker === 'function' && supportsContactPicker()) {
+            statusEl.textContent = 'Tap "Pick from Contacts" to select from your phone contacts.';
+            statusEl.style.color = '#198754';
+        } else {
+            statusEl.textContent = 'Phone contacts picker not supported in this browser. Please type the number manually.';
+            statusEl.style.color = '#dc3545';
+        }
+    }
+});
+
+// Load all wholesalers
+async function loadWholesalers() {
+    try {
+        const response = await fetch('/api/wholesalers');
+        wholesalersCache = await response.json();
+    } catch (error) {
+        console.error('Error loading wholesalers:', error);
+    }
+}
+
+// Search wholesalers
+async function searchWholesalers() {
+    const query = document.getElementById('wholesalerSearch').value.trim();
+    const list = document.getElementById('wholesalerList');
+
+    if (!query || query.length < 1) {
+        list.classList.remove('active');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/wholesalers/search?q=${encodeURIComponent(query)}`);
+        const wholesalers = await response.json();
+
+        list.innerHTML = '';
+        if (wholesalers.length > 0) {
+            wholesalers.forEach(wholesaler => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                div.innerHTML = `<strong>${wholesaler.name}</strong><br><small>${wholesaler.phone || 'No phone'}</small>`;
+                div.onclick = () => selectWholesaler(wholesaler);
+                list.appendChild(div);
+            });
+            list.classList.add('active');
+        } else {
+            list.classList.remove('active');
+        }
+    } catch (error) {
+        console.error('Error searching wholesalers:', error);
+    }
+}
+
+// Select a wholesaler
+function selectWholesaler(wholesaler) {
+    document.getElementById('wholesalerId').value = wholesaler.id;
+    document.getElementById('wholesalerSearch').value = wholesaler.name;
+    document.getElementById('selectedWholesalerName').textContent = wholesaler.name;
+    document.getElementById('selectedWholesalerDisplay').style.display = 'block';
+    document.getElementById('wholesalerList').classList.remove('active');
+}
+
+// Clear wholesaler selection
+function clearWholesalerSelection() {
+    document.getElementById('wholesalerId').value = '';
+    document.getElementById('wholesalerSearch').value = '';
+    document.getElementById('selectedWholesalerDisplay').style.display = 'none';
+    document.getElementById('wholesalerSearch').focus();
+}
+
+// Calculate total price
+function calculateTotal() {
+    const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+    const pricePerUnit = parseFloat(document.getElementById('pricePerUnit').value) || 0;
+    const total = quantity * pricePerUnit;
+    document.getElementById('totalPrice').textContent = `Rs ${total.toFixed(2)}`;
+    calculateRemaining();
+}
+
+// Calculate remaining balance
+function calculateRemaining() {
+    const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+    const pricePerUnit = parseFloat(document.getElementById('pricePerUnit').value) || 0;
+    const total = quantity * pricePerUnit;
+    const paid = parseFloat(document.getElementById('paidAmount').value) || 0;
+    const remaining = total - paid;
+    document.getElementById('remainingBalance').textContent = `Rs ${remaining.toFixed(2)}`;
+}
+
+// Add new wholesaler via modal
+document.getElementById('addWholesalerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const name = document.getElementById('newWholesalerName').value;
+    const phone = document.getElementById('newWholesalerPhone').value;
+    const address = document.getElementById('newWholesalerAddress').value;
+
+    try {
+        const response = await fetch('/api/wholesalers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name, phone, address })
+        });
+
+        if (response.ok) {
+            const wholesaler = await response.json();
+            selectWholesaler(wholesaler);
+            
+            // Reset form and close modal
+            document.getElementById('addWholesalerForm').reset();
+            bootstrap.Modal.getInstance(document.getElementById('addWholesalerModal')).hide();
+            
+            // Reload wholesalers list
+            loadWholesalers();
+            location.reload();
+        } else {
+            const error = await response.json();
+            alert('Error: ' + error.error);
+        }
+    } catch (error) {
+        alert('Error adding wholesaler: ' + error.message);
+    }
+});
+</script>
+
+{% endblock %}

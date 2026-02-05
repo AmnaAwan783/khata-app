@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Stock Summary</h2>
+
+<!-- Desktop Table -->
+<div class="table-responsive">
+    <table class="table table-bordered table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Item Name</th>
+                <th>Total Purchased</th>
+                <th>Total Sold</th>
+                <th>Remaining in Store</th>
+                <th>Unit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in stock_data %}
+            <tr>
+                <td><strong>{{ item.name }}</strong></td>
+                <td>{{ "%.2f"|format(item.purchased) }} {{ item.unit }}</td>
+                <td>{{ "%.2f"|format(item.sold) }} {{ item.unit }}</td>
+                <td>
+                    <strong class="{% if item.remaining <= 0 %}text-danger{% elif item.remaining < 10 %}text-warning{% else %}text-success{% endif %}">
+                        {{ "%.2f"|format(item.remaining) }} {{ item.unit }}
+                    </strong>
+                </td>
+                <td>{{ item.unit }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Mobile Cards -->
+<div class="table-mobile-card">
+    {% for item in stock_data %}
+    <div class="mobile-card">
+        <div class="mobile-card-header">{{ item.name }}</div>
+        <div class="mobile-card-row">
+            <span class="mobile-card-label">Total Purchased</span>
+            <span class="mobile-card-value">{{ "%.2f"|format(item.purchased) }} {{ item.unit }}</span>
+        </div>
+        <div class="mobile-card-row">
+            <span class="mobile-card-label">Total Sold</span>
+            <span class="mobile-card-value">{{ "%.2f"|format(item.sold) }} {{ item.unit }}</span>
+        </div>
+        <div class="mobile-card-row">
+            <span class="mobile-card-label">Remaining in Store</span>
+            <span class="mobile-card-value">
+                <strong class="{% if item.remaining <= 0 %}text-danger{% elif item.remaining < 10 %}text-warning{% else %}text-success{% endif %}">
+                    {{ "%.2f"|format(item.remaining) }} {{ item.unit }}
+                </strong>
+            </span>
+        </div>
+        <div class="mobile-card-row">
+            <span class="mobile-card-label">Unit</span>
+            <span class="mobile-card-value">{{ item.unit }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<a href="{{ url_for('items') }}" class="btn btn-secondary mt-3">Back to Items</a>
+
+{% endblock %}

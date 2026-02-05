@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    .wholesaler-form-container {
+        max-width: 500px;
+    }
+
+    .wholesaler-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 15px;
+    }
+
+    .wholesaler-card {
+        border: none;
+        border-radius: 10px;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .wholesaler-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .wholesaler-card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px;
+    }
+
+    .wholesaler-card-header h5 {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+
+    .wholesaler-card-body {
+        padding: 15px;
+        background-color: #f8f9fa;
+    }
+
+    .wholesaler-card-body small {
+        display: block;
+        margin: 8px 0;
+        color: #666;
+    }
+
+    .wholesaler-card-footer {
+        padding: 12px 15px;
+        background-color: #fff;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+    }
+
+    .wholesaler-card-footer a,
+    .wholesaler-card-footer button {
+        flex: 1;
+        padding: 6px 10px;
+        font-size: 0.85rem;
+    }
+
+    .icon-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .tab-content {
+        margin-top: 20px;
+    }
+</style>
+
+<div class="container-fluid">
+    <h1 class="mb-4">📊 Manage Wholesalers</h1>
+
+    <!-- Display flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4" id="wholesalerTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="list-tab" data-bs-toggle="tab" data-bs-target="#list" type="button" role="tab">
+                📋 All Wholesalers ({{ wholesalers | length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="add-tab" data-bs-toggle="tab" data-bs-target="#add" type="button" role="tab">
+                ➕ Add New Wholesaler
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="wholesalerTabContent">
+        <!-- List Tab -->
+        <div class="tab-pane fade show active" id="list" role="tabpanel">
+            {% if wholesalers %}
+                <div class="wholesaler-grid">
+                    {% for wholesaler in wholesalers %}
+                        {% set total_bill = wholesaler.transactions | map(attribute='total_price') | sum %}
+                        {% set total_paid = wholesaler.transactions | map(attribute='paid_amount') | sum %}
+                        {% set balance = total_bill - total_paid %}
+                        {% set balance_abs = balance if balance >= 0 else -balance %}
+                        
+                        <div class="card wholesaler-card shadow-sm">
+                            <div class="wholesaler-card-header">
+                                <div class="icon-header">
+                                    <span>🏢</span>
+                                    <div>
+                                        <h5>{{ wholesaler.name }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="wholesaler-card-body">
+                                {% if wholesaler.phone %}
+                                    <small>
+                                        <strong>📱 Phone:</strong> {{ wholesaler.phone }}
+                                    </small>
+                                {% endif %}
+                                {% if wholesaler.address %}
+                                    <small>
+                                        <strong>📍 Address:</strong> {{ wholesaler.address }}
+                                    </small>
+                                {% endif %}
+                                <small>
+                                    <strong>💼 Transactions:</strong> {{ wholesaler.transactions | length }}
+                                </small>
+                                <small>
+                                    <strong>💰 Total Bill:</strong> Rs {{ "%.2f" | format(total_bill) }}
+                                </small>
+                                <small>
+                                    <strong>✅ Paid:</strong> Rs {{ "%.2f" | format(total_paid) }}
+                                </small>
+                                <small>
+                                    <strong>{% if balance > 0 %}Due:{% elif balance < 0 %}To Receive:{% else %}Status:{% endif %}</strong>
+                                    Rs {{ "%.2f" | format(balance_abs) }}
+                                </small>
+                            </div>
+                            <div class="wholesaler-card-footer">
+                                <a href="{{ url_for('wholesaler_detail', id=wholesaler.id) }}" class="btn btn-info btn-sm text-white flex-grow-1">
+                                    View Details
+                                </a>
+                                <a href="{{ url_for('delete_wholesaler', id=wholesaler.id) }}" class="btn btn-danger btn-sm flex-grow-1" onclick="return confirm('Delete this wholesaler and all transactions?')">
+                                    Delete
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    <h4 class="alert-heading">No Wholesalers Yet</h4>
+                    <p>You haven't added any wholesalers yet. Click on the "Add New Wholesaler" tab to get started.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Add Tab -->
+        <div class="tab-pane fade" id="add" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">➕ Add New Wholesaler</h5>
+                </div>
+                <div class="card-body wholesaler-form-container">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">Wholesaler Name <span class="text-danger">*</span></label>
+                            <input 
+                                type="text" 
+                                name="name" 
+                                id="wholesalerNameForm"
+                                class="form-control" 
+                                placeholder="e.g., ABC Pharmaceuticals, XYZ Supplies, etc."
+                                required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <div class="input-group">
+                                <input 
+                                    type="tel" 
+                                    name="phone" 
+                                    id="wholesalerPhone"
+                                    class="form-control" 
+                                    placeholder="e.g., +92-300-1234567"
+                                    inputmode="tel">
+                                <button 
+                                    type="button" 
+                                    class="btn btn-secondary" 
+                                    id="pickWholesalerContactBtnForm"
+                                    style="display: block !important;"
+                                    data-contact-picker
+                                    data-name-field="wholesalerNameForm"
+                                    data-phone-field="wholesalerPhone"
+                                    title="Pick a contact from your phone contact list">
+                                    📱 Pick from Contacts
+                                </button>
+                            </div>
+                            <small class="form-text text-muted" id="contactPickerFormStatus"></small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Address</label>
+                            <textarea 
+                                name="address" 
+                                class="form-control" 
+                                rows="2" 
+                                placeholder="e.g., Street, City, Country"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-lg w-100">
+                            💾 Add Wholesaler
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Picker Script -->
+<script src="{{ url_for('static', filename='js/contact_picker.js') }}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize contact picker for add wholesaler form
+    if (typeof initContactPickerButton !== 'undefined') {
+        try {
+            initContactPickerButton('pickWholesalerContactBtnForm', 'wholesalerNameForm', 'wholesalerPhone');
+            console.log('Wholesaler form contact picker button initialized');
+        } catch (error) {
+            console.error('Error initializing wholesaler form contact picker:', error);
+        }
+    }
+    
+    // Update status message in form
+    const statusEl = document.getElementById('contactPickerFormStatus');
+    if (statusEl) {
+        if (typeof supportsContactPicker === 'function' && supportsContactPicker()) {
+            statusEl.textContent = 'Tap "Pick from Contacts" to select from your phone contacts.';
+            statusEl.style.color = '#198754';
+        } else {
+            statusEl.textContent = 'Phone contacts picker not supported in this browser. Please type the number manually.';
+            statusEl.style.color = '#dc3545';
+        }
+    }
+});
+</script>
+
+{% endblock %}

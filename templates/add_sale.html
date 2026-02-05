@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1 class="mb-4">Add Sale</h1>
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="mb-4">Sale Information</h2>
+        <form method="POST" id="saleForm">
+            <div class="mb-3">
+                <label class="form-label">Sale Type <span class="text-danger">*</span></label>
+                <select name="sale_type" id="saleType" class="form-select" required onchange="toggleCustomerField()">
+                    <option value="cash">Cash Sale</option>
+                    <option value="credit">Credit Sale</option>
+                </select>
+            </div>
+
+            <!-- Customer Autocomplete Field -->
+            <div class="mb-3" id="customerField" style="display: none;">
+                <label class="form-label">Customer <span class="text-danger">*</span></label>
+                <div class="autocomplete-wrapper">
+                    <input 
+                        type="text" 
+                        id="customerSearch" 
+                        class="form-control" 
+                        placeholder="Search by name or phone..."
+                        autocomplete="off"
+                        oninput="clearCustomerSelection()">
+                    <input type="hidden" name="customer_id" id="customerId" required>
+                </div>
+                <small class="form-text text-muted">Start typing to search customers</small>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Item <span class="text-danger">*</span></label>
+                <select name="item_id" id="itemId" class="form-select" required onchange="updatePrice()">
+                    <option value="">Select Item</option>
+                    {% for i in items %}
+                    <option value="{{ i.id }}" data-price="{{ i.sale_price }}" data-stock="{{ i.stock_quantity }}" data-unit="{{ i.unit }}">
+                        {{ i.name }} ({{ i.unit }}) - Stock: {{ i.stock_quantity }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Quantity <span class="text-danger">*</span></label>
+                <input 
+                    type="number" 
+                    step="0.01" 
+                    name="quantity" 
+                    id="quantity" 
+                    class="form-control" 
+                    required 
+                    min="0.01" 
+                    inputmode="decimal"
+                    oninput="calculateTotal()"
+                    placeholder="0.00">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Price per Unit <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <span class="input-group-text">Rs</span>
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        name="unit_price" 
+                        id="unitPrice" 
+                        class="form-control" 
+                        required 
+                        min="0" 
+                        inputmode="decimal"
+                        oninput="calculateTotal()"
+                        placeholder="0.00">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Total Price</label>
+                <div class="input-group">
+                    <span class="input-group-text">Rs</span>
+                    <input 
+                        type="text" 
+                        id="totalPrice" 
+                        class="form-control" 
+                        readonly 
+                        value="0.00"
+                        style="font-weight: 600; font-size: 18px;">
+                </div>
+                <input type="hidden" name="total_price" id="totalPriceHidden" value="0.00">
+            </div>
+
+            <div class="mb-3" id="paidAmountField">
+                <label class="form-label">Paid Amount</label>
+                <div class="input-group">
+                    <span class="input-group-text">Rs</span>
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        name="paid_amount" 
+                        id="paidAmount" 
+                        class="form-control" 
+                        value="0" 
+                        min="0" 
+                        inputmode="decimal"
+                        oninput="calculateTotal()"
+                        placeholder="0.00">
+                </div>
+            </div>
+
+            <!-- Remaining Balance Display -->
+            <div class="mb-3" id="balanceField" style="display: none;">
+                <div class="alert alert-info">
+                    <strong>Remaining Balance:</strong> 
+                    <span id="remainingBalance" class="balance-unpaid">Rs 0.00</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <span id="submitBtnText">Save Sale</span>
+                    <span id="submitBtnSpinner" class="spinner-border spinner-border-sm ms-2" style="display: none;"></span>
+                </button>
+                <a href="{{ url_for('sales') }}" class="btn btn-secondary btn-lg">Cancel</a>
+            </div>
+            
+            <!-- Mobile Sticky Button (hidden on desktop) -->
+            <div class="sticky-btn">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <span id="submitBtnTextMobile">Save Sale</span>
+                    <span id="submitBtnSpinnerMobile" class="spinner-border spinner-border-sm ms-2" style="display: none;"></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Customer Modal -->
+<div class="modal fade" id="addCustomerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Customer</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCustomerForm">
+                    <div class="mb-3">
+                        <label class="form-label">Customer Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="newCustomerName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone Number <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="tel" class="form-control" id="newCustomerPhone" required inputmode="tel" placeholder="Enter phone number">
+                            <button 
+                                type="button" 
+                                class="btn btn-secondary" 
+                                id="pickContactModalBtn"
+                                style="display: block !important;"
+                                data-contact-picker
+                                data-name-field="newCustomerName"
+                                data-phone-field="newCustomerPhone"
+                                title="Pick a contact from your phone contact list">
+                                📱 Pick from Contacts
+                            </button>
+                        </div>
+                        <small class="form-text text-muted" id="contactPickerModalStatus"></small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveNewCustomer()">Add Customer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Picker JavaScript -->
+<script src="{{ url_for('static', filename='js/contact_picker.js') }}"></script>
+
+<script>
+let customerModal = null;
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap modal
+    customerModal = new bootstrap.Modal(document.getElementById('addCustomerModal'));
+    
+    // Initialize contact picker for add customer modal
+    if (typeof initContactPickerButton !== 'undefined') {
+        try {
+            initContactPickerButton('pickContactModalBtn', 'newCustomerName', 'newCustomerPhone');
+            console.log('Modal contact picker button initialized');
+        } catch (error) {
+            console.error('Error initializing modal contact picker:', error);
+        }
+    } else {
+        console.error('contact_picker.js not loaded for modal!');
+    }
+    
+    // Update status message in modal
+    const statusEl = document.getElementById('contactPickerModalStatus');
+    if (statusEl) {
+        if (typeof supportsContactPicker === 'function' && supportsContactPicker()) {
+            statusEl.textContent = 'Tap "Pick from Contacts" to select from your phone contacts.';
+            statusEl.style.color = '#198754';
+        } else {
+            statusEl.textContent = 'Phone contacts picker not supported in this browser. Please type the number manually.';
+            statusEl.style.color = '#dc3545';
+        }
+    }
+    
+    // Initialize customer autocomplete
+    const customerSearch = document.getElementById('customerSearch');
+    const customerId = document.getElementById('customerId');
+    
+    if (customerSearch && window.StoreApp) {
+        window.StoreApp.initCustomerAutocomplete(
+            customerSearch,
+            customerId,
+            function(customer) {
+                console.log('Customer selected:', customer);
+            }
+        );
+    }
+    
+    // Form submission handler
+    document.getElementById('saleForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Validate customer for credit sales
+        const saleType = document.getElementById('saleType').value;
+        if (saleType === 'credit' && !customerId.value) {
+            alert('Please select a customer for credit sale');
+            return;
+        }
+        
+        // Show loading spinner
+        const spinner = document.getElementById('submitBtnSpinner');
+        const spinnerDesktop = document.getElementById('submitBtnSpinnerDesktop');
+        const submitText = document.getElementById('submitBtnText');
+        const submitTextDesktop = document.getElementById('submitBtnTextDesktop');
+        
+        if (spinner) spinner.style.display = 'inline-block';
+        if (spinnerDesktop) spinnerDesktop.style.display = 'inline-block';
+        if (submitText) submitText.textContent = 'Saving...';
+        if (submitTextDesktop) submitTextDesktop.textContent = 'Saving...';
+        
+        // Check if offline
+        if (!navigator.onLine && window.StoreApp) {
+            // Save offline
+            const formData = new FormData(this);
+            const saleData = {
+                sale_type: formData.get('sale_type'),
+                customer_id: formData.get('customer_id') || null,
+                item_id: formData.get('item_id'),
+                quantity: parseFloat(formData.get('quantity')),
+                unit_price: parseFloat(formData.get('unit_price')),
+                total_price: parseFloat(document.getElementById('totalPriceHidden').value),
+                paid_amount: parseFloat(formData.get('paid_amount') || 0)
+            };
+            
+            try {
+                await window.StoreApp.saveOfflineSale(saleData);
+                window.StoreApp.showNotification('Sale saved offline. Will sync when online.', 'success');
+                this.reset();
+                calculateTotal();
+                setTimeout(() => {
+                    window.location.href = '/sales';
+                }, 1500);
+            } catch (error) {
+                console.error('Error saving offline sale:', error);
+                window.StoreApp.showNotification('Error saving sale offline', 'error');
+            } finally {
+                if (spinner) spinner.style.display = 'none';
+                if (spinnerDesktop) spinnerDesktop.style.display = 'none';
+                if (submitText) submitText.textContent = 'Save Sale';
+                if (submitTextDesktop) submitTextDesktop.textContent = 'Save Sale';
+            }
+        } else {
+            // Submit normally
+            this.submit();
+        }
+    });
+});
+
+function toggleCustomerField() {
+    const saleType = document.getElementById('saleType').value;
+    const customerField = document.getElementById('customerField');
+    const paidAmountField = document.getElementById('paidAmountField');
+    const balanceField = document.getElementById('balanceField');
+    const paidAmount = document.getElementById('paidAmount');
+    const customerId = document.getElementById('customerId');
+    const customerSearch = document.getElementById('customerSearch');
+    
+    if (saleType === 'credit') {
+        customerField.style.display = 'block';
+        customerId.required = true;
+        paidAmountField.style.display = 'block';
+        balanceField.style.display = 'block';
+        customerSearch.focus();
+    } else {
+        customerField.style.display = 'none';
+        customerId.required = false;
+        customerId.value = '';
+        customerSearch.value = '';
+        paidAmountField.style.display = 'none';
+        balanceField.style.display = 'none';
+        const total = parseFloat(document.getElementById('totalPrice').value) || 0;
+        paidAmount.value = total.toFixed(2);
+    }
+    calculateTotal();
+}
+
+function clearCustomerSelection() {
+    document.getElementById('customerId').value = '';
+}
+
+function updatePrice() {
+    const itemSelect = document.getElementById('itemId');
+    const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+    if (selectedOption.value) {
+        const price = selectedOption.getAttribute('data-price');
+        const stock = selectedOption.getAttribute('data-stock');
+        document.getElementById('unitPrice').value = price || 0;
+        
+        // Show stock warning if low
+        if (stock && parseFloat(stock) < 10) {
+            // Could add a visual indicator here
+        }
+        
+        calculateTotal();
+    }
+}
+
+function calculateTotal() {
+    const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+    const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 0;
+    const total = quantity * unitPrice;
+    
+    // Update total price (read-only)
+    document.getElementById('totalPrice').value = total.toFixed(2);
+    document.getElementById('totalPriceHidden').value = total.toFixed(2);
+    
+    // Handle paid amount and balance
+    const saleType = document.getElementById('saleType').value;
+    const paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
+    
+    if (saleType === 'cash') {
+        // For cash sales, paid amount equals total
+        document.getElementById('paidAmount').value = total.toFixed(2);
+    } else {
+        // For credit sales, show remaining balance
+        const remaining = total - paidAmount;
+        const balanceElement = document.getElementById('remainingBalance');
+        if (balanceElement) {
+            balanceElement.textContent = 'Rs ' + remaining.toFixed(2);
+            if (remaining > 0) {
+                balanceElement.className = 'balance-unpaid';
+            } else {
+                balanceElement.className = 'balance-paid';
+            }
+        }
+    }
+}
+
+// Add Customer Modal Functions
+function openAddCustomerModal(searchQuery) {
+    if (customerModal) {
+        document.getElementById('newCustomerName').value = searchQuery || '';
+        document.getElementById('newCustomerPhone').value = '';
+        customerModal.show();
+    }
+}
+
+async function saveNewCustomer() {
+    const name = document.getElementById('newCustomerName').value.trim();
+    const phone = document.getElementById('newCustomerPhone').value.trim();
+    
+    if (!name || !phone) {
+        alert('Please fill in all fields');
+        return;
+    }
+    
+    try {
+        let customer;
+        
+        if (navigator.onLine) {
+            // Save via API
+            const response = await fetch('/api/customers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, phone })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to create customer');
+            }
+            
+            customer = await response.json();
+        } else {
+            // Save to IndexedDB (will sync later)
+            customer = {
+                id: 'temp_' + Date.now(),
+                name: name,
+                phone: phone,
+                temp: true
+            };
+            
+            // Save to IndexedDB
+            if (window.StoreApp && window.StoreApp.saveCustomerToDB) {
+                await window.StoreApp.saveCustomerToDB(customer);
+            }
+        }
+        
+        // Select the new customer
+        document.getElementById('customerSearch').value = `${customer.name} - ${customer.phone}`;
+        document.getElementById('customerId').value = customer.id;
+        
+        // Close modal
+        customerModal.hide();
+        
+        // Show success message
+        if (window.StoreApp) {
+            window.StoreApp.showNotification('Customer added successfully!', 'success');
+        }
+        
+        // Reload customers list
+        if (window.StoreApp && window.StoreApp.initCustomerAutocomplete) {
+            const customerSearch = document.getElementById('customerSearch');
+            const customerId = document.getElementById('customerId');
+            window.StoreApp.initCustomerAutocomplete(customerSearch, customerId);
+        }
+    } catch (error) {
+        console.error('Error saving customer:', error);
+        alert('Error: ' + error.message);
+    }
+}
+
+// Make functions globally available
+window.openAddCustomerModal = openAddCustomerModal;
+window.saveNewCustomer = saveNewCustomer;
+</script>
+
+{% endblock %}

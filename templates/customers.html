@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1 class="mb-4">Customers</h1>
+
+<!-- Add Customer Form -->
+<div class="card">
+    <div class="card-body">
+        <h2 class="mb-4">Add Customer</h2>
+        <form method="POST" id="customerForm">
+            <div class="mb-3">
+                <label class="form-label">Name <span class="text-danger">*</span></label>
+                <input type="text" name="name" id="customerName" class="form-control" required placeholder="Enter customer name">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Phone Number <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="tel" name="phone" id="customerPhone" class="form-control" required inputmode="tel" placeholder="Enter phone number">
+                    <button 
+                        type="button" 
+                        class="btn btn-secondary" 
+                        id="pickContactBtn"
+                        style="display: block !important;"
+                        data-contact-picker
+                        data-name-field="customerName"
+                        data-phone-field="customerPhone"
+                        title="Pick a contact from your phone contact list">
+                        📱 Pick from Contacts
+                    </button>
+                </div>
+                <small class="form-text">
+                    <span id="contactPickerStatus"></span>
+                </small>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg">Add Customer</button>
+        </form>
+    </div>
+</div>
+
+<!-- Customer List -->
+<div class="card">
+    <div class="card-body">
+        <h2 class="mb-4">Customer List</h2>
+        
+        <!-- Desktop Table -->
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in customers %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('customer_detail', id=c.id) }}" style="text-decoration: none; color: var(--color-primary);">
+                                {{ c.name }}
+                            </a>
+                        </td>
+                        <td>
+                            <a href="tel:{{ c.phone }}" style="text-decoration: none; color: var(--text-secondary);">
+                                {{ c.phone }}
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('delete_customer', id=c.id) }}"
+                               class="btn btn-sm btn-danger"
+                               onclick="return confirm('Delete this customer?')">
+                               Delete
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center text-muted">No customers found. Add your first customer above.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Mobile Cards -->
+        <div class="table-mobile-card">
+            {% for c in customers %}
+            <div class="mobile-card">
+                <div class="mobile-card-header">{{ c.name }}</div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Phone</span>
+                    <span class="mobile-card-value">
+                        <a href="tel:{{ c.phone }}" style="text-decoration: none; color: var(--color-primary);">
+                            {{ c.phone }}
+                        </a>
+                    </span>
+                </div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Actions</span>
+                    <span class="mobile-card-value">
+                        <a href="{{ url_for('customer_detail', id=c.id) }}" class="btn btn-sm btn-primary">View</a>
+                        <a href="{{ url_for('delete_customer', id=c.id) }}"
+                           class="btn btn-sm btn-danger"
+                           onclick="return confirm('Delete this customer?')">
+                           Delete
+                        </a>
+                    </span>
+                </div>
+            </div>
+            {% else %}
+            <div class="mobile-card text-center text-muted">
+                No customers found. Add your first customer above.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Contact Picker JavaScript -->
+<script src="{{ url_for('static', filename='js/contact_picker.js') }}"></script>
+
+<script>
+// Initialize contact picker button
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing contact picker...');
+    
+    // Wait a bit to ensure script is loaded
+    if (typeof initContactPickerButton === 'undefined') {
+        console.error('contact_picker.js not loaded!');
+        alert('Contact picker script failed to load. Please refresh the page.');
+        return;
+    }
+    
+    try {
+        initContactPickerButton('pickContactBtn', 'customerName', 'customerPhone');
+        console.log('Contact picker button initialized');
+    } catch (error) {
+        console.error('Error initializing contact picker:', error);
+    }
+    
+    const statusEl = document.getElementById('contactPickerStatus');
+    if (statusEl) {
+        if (typeof supportsContactPicker === 'function' && supportsContactPicker()) {
+            statusEl.textContent = 'Tap "Pick from Contacts" to select from your phone contacts.';
+            statusEl.style.color = '#198754';
+        } else {
+            statusEl.textContent = 'Phone contacts picker not supported in this browser. Please type the number manually.';
+            statusEl.style.color = '#dc3545';
+        }
+    }
+    
+    // Debug: Log button state
+    const btn = document.getElementById('pickContactBtn');
+    if (btn) {
+        console.log('Contact picker button found:', {
+            id: btn.id,
+            display: window.getComputedStyle(btn).display,
+            visibility: window.getComputedStyle(btn).visibility,
+            visible: btn.offsetParent !== null
+        });
+    } else {
+        console.error('Contact picker button NOT found!');
+    }
+});
+</script>
+
+{% endblock %}

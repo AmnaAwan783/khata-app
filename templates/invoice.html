@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Invoice Container for Screenshot Capture -->
+<div id="invoice-container" class="invoice-container">
+    <div class="invoice-header">
+        <h2>Invoice</h2>
+        <p class="text-muted mb-0">Dr Zeeshan Awan Store</p>
+        <p class="text-muted">Date: {{ sale.date.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p class="text-muted">Invoice</p>
+    </div>
+
+    <div class="invoice-section">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="invoice-section-title">Customer Details</div>
+                <p class="mb-1"><strong>Name:</strong> {{ customer.name }}</p>
+                <p class="mb-0"><strong>Phone:</strong> <a href="tel:{{ customer.phone }}" style="text-decoration: none; color: var(--color-primary);">{{ customer.phone }}</a></p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <div class="invoice-section-title">Sale Information</div>
+                <p class="mb-1"><strong>Sale ID:</strong> #{{ sale.id }}</p>
+                <p class="mb-0"><strong>Date:</strong> {{ sale.date.strftime('%Y-%m-%d') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="invoice-section">
+        <div class="invoice-section-title">Purchase Details</div>
+        <!-- Desktop Table -->
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>{{ sale.quantity }} {{ item.unit }}</td>
+                        <td>Rs {{ "%.2f"|format(sale.unit_price) }}</td>
+                        <td class="text-end"><strong>Rs {{ "%.2f"|format(sale.total_price) }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- Mobile Card -->
+        <div class="table-mobile-card">
+            <div class="mobile-card">
+                <div class="mobile-card-header">{{ item.name }}</div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Quantity</span>
+                    <span class="mobile-card-value">{{ sale.quantity }} {{ item.unit }}</span>
+                </div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Unit Price</span>
+                    <span class="mobile-card-value">Rs {{ "%.2f"|format(sale.unit_price) }}</span>
+                </div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Total</span>
+                    <span class="mobile-card-value"><strong>Rs {{ "%.2f"|format(sale.total_price) }}</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="invoice-section">
+        <div class="row">
+            <div class="col-md-6 offset-md-6">
+                <!-- Desktop Table -->
+                <div class="table-responsive">
+                    <table class="table">
+                        <tr>
+                            <td><strong>Total Amount:</strong></td>
+                            <td class="text-end"><strong class="invoice-amount">Rs {{ "%.2f"|format(sale.total_price) }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Paid Amount:</strong></td>
+                            <td class="text-end">Rs {{ "%.2f"|format(sale.paid_amount) }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Remaining Balance:</strong></td>
+                            <td class="text-end"><strong class="balance-unpaid">Rs {{ "%.2f"|format(remaining_balance) }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+                <!-- Mobile Card -->
+                <div class="table-mobile-card">
+                    <div class="mobile-card">
+                        <div class="mobile-card-header">Amount Summary</div>
+                        <div class="mobile-card-row">
+                            <span class="mobile-card-label">Total Amount</span>
+                            <span class="mobile-card-value"><strong class="invoice-amount">Rs {{ "%.2f"|format(sale.total_price) }}</strong></span>
+                        </div>
+                        <div class="mobile-card-row">
+                            <span class="mobile-card-label">Paid Amount</span>
+                            <span class="mobile-card-value">Rs {{ "%.2f"|format(sale.paid_amount) }}</span>
+                        </div>
+                        <div class="mobile-card-row">
+                            <span class="mobile-card-label">Remaining Balance</span>
+                            <span class="mobile-card-value"><strong class="balance-unpaid">Rs {{ "%.2f"|format(remaining_balance) }}</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invoice Actions (Hidden during screenshot) -->
+<div class="card no-print">
+    <div class="card-body">
+        <h3 class="mb-3">Invoice Message</h3>
+        <textarea class="form-control mb-3" rows="6" id="invoiceMessage" readonly>{{ invoice_message }}</textarea>
+        
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-primary" onclick="copyMessage()">
+                <span id="copyBtnText">📋 Copy Message</span>
+            </button>
+            
+            <button 
+                class="btn btn-success btn-lg" 
+                id="shareInvoiceBtn"
+                onclick="shareInvoiceOnWhatsApp('{{ customer.phone }}')">
+                <span id="shareInvoiceBtnText">📱 Share Invoice on WhatsApp</span>
+            </button>
+            
+            <button class="btn btn-secondary" onclick="printInvoice()">
+                🖨️ Print Invoice
+            </button>
+        </div>
+        
+        <div class="mt-3">
+            <small class="text-muted">
+                <strong>💡 Tip:</strong> "Share Invoice on WhatsApp" captures a screenshot and shares both image and text together.
+                On mobile, it uses the native share sheet. On desktop, it downloads the image and opens WhatsApp.
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation Buttons -->
+<div class="text-center no-print">
+    <a href="{{ url_for('customer_detail', id=customer.id) }}" class="btn btn-secondary">Back to Customer</a>
+    <a href="{{ url_for('sales') }}" class="btn btn-primary">Back to Sales</a>
+</div>
+
+<!-- html2canvas Library for Screenshot Capture -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<!-- Invoice Share JavaScript -->
+<script src="{{ url_for('static', filename='js/invoice_share.js') }}"></script>
+
+<!-- Invoice Page Scripts -->
+<script>
+function generateInvoiceMessage() {
+    const storeName = 'Dr Zeeshan Awan Store';
+    const invoiceDate = '{{ sale.date.strftime("%Y-%m-%d") }}';
+    const invoiceId = '{{ sale.id }}';
+    const customerName = '{{ customer.name }}';
+    const itemName = '{{ item.name }}';
+    const quantity = '{{ sale.quantity }}';
+    const unit = '{{ item.unit }}';
+    const unitPrice = '{{ "%.2f"|format(sale.unit_price) }}';
+    const totalPrice = '{{ "%.2f"|format(sale.total_price) }}';
+    const paidAmount = '{{ "%.2f"|format(sale.paid_amount) }}';
+    const remainingBalance = '{{ "%.2f"|format(remaining_balance) }}';
+    const invoiceLink = window.location.origin + '{{ url_for("invoice", sale_id=sale.id) }}';
+    
+    let message = `🏪 *${storeName}*\n\n`;
+    message += `📋 *Invoice *\n`;
+    message += `📅 Date: ${invoiceDate}\n\n`;
+    message += `👤 *Customer:* ${customerName}\n\n`;
+    message += `📦 *Items:*\n`;
+    message += `   • ${itemName}\n`;
+    message += `   Quantity: ${quantity} ${unit}\n`;
+    message += `   Unit Price: Rs ${unitPrice}\n\n`;
+    message += `💰 *Amount Summary:*\n`;
+    message += `   Total: Rs ${totalPrice}\n`;
+    message += `   Paid: Rs ${paidAmount}\n`;
+    message += `   Balance: Rs ${remainingBalance}\n\n`;
+    
+    if (parseFloat(remainingBalance) > 0) {
+        message += `⚠️ *Remaining Balance: Rs ${remainingBalance}*\n\n`;
+    }
+    
+    message += `Thank you for your business! 🙏\n\n`;
+    message += `View invoice: ${invoiceLink}`;
+    
+    return message;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const messageElement = document.getElementById('invoiceMessage');
+    if (messageElement) {
+        messageElement.value = generateInvoiceMessage();
+    }
+});
+
+function copyMessage() {
+    const message = document.getElementById('invoiceMessage');
+    message.select();
+    message.setSelectionRange(0, 99999);
+    
+    try {
+        document.execCommand('copy');
+        const copyBtn = document.getElementById('copyBtnText');
+        if (copyBtn) {
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = '✓ Copied!';
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+            }, 2000);
+        }
+        
+        if (window.StoreApp) {
+            window.StoreApp.showNotification('Message copied to clipboard!', 'success');
+        } else {
+            alert('Message copied to clipboard!');
+        }
+    } catch (err) {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy. Please select and copy manually.');
+    }
+}
+
+function printInvoice() {
+    window.print();
+}
+
+// Print styles
+document.addEventListener('DOMContentLoaded', function() {
+    const style = document.createElement('style');
+    style.textContent = `
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .invoice-container { box-shadow: none; border: none; padding: 0; }
+            .btn { display: none !important; }
+        }
+        
+        .hide-for-screenshot {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1 class="mb-4">Items</h1>
+
+<!-- Add Item Form -->
+<div class="card">
+    <div class="card-body">
+        <h2 class="mb-4">Add Item</h2>
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label">Item Name <span class="text-danger">*</span></label>
+                <input type="text" name="name" class="form-control" required placeholder="Enter item name">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Category</label>
+                <input type="text" name="category" class="form-control" placeholder="e.g., Medicine, Equipment">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Unit</label>
+                <input type="text" name="unit" class="form-control" placeholder="e.g., kg, piece, liter">
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Purchase Price</label>
+                        <input type="number" step="0.01" name="purchase_price" class="form-control" min="0" placeholder="0.00" inputmode="decimal">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Sale Price</label>
+                        <input type="number" step="0.01" name="sale_price" class="form-control" min="0" placeholder="0.00" inputmode="decimal">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Stock Quantity</label>
+                        <input type="number" step="0.01" name="stock_quantity" class="form-control" min="0" value="0" placeholder="0.00" inputmode="decimal">
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-lg">Add Item</button>
+        </form>
+    </div>
+</div>
+
+<!-- Item List -->
+<div class="card">
+    <div class="card-body">
+        <h2 class="mb-4">Item List</h2>
+        
+        <!-- Desktop Table -->
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Unit</th>
+                        <th>Purchase Price</th>
+                        <th>Sale Price</th>
+                        <th>Stock</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in items %}
+                    <tr>
+                        <td><strong>{{ i.name }}</strong></td>
+                        <td>{{ i.category or '-' }}</td>
+                        <td>{{ i.unit or '-' }}</td>
+                        <td>Rs {{ "%.2f"|format(i.purchase_price) if i.purchase_price else '-' }}</td>
+                        <td><strong>Rs {{ "%.2f"|format(i.sale_price) if i.sale_price else '-' }}</strong></td>
+                        <td>{{ "%.2f"|format(i.stock_quantity) if i.stock_quantity else '0' }} {{ i.unit or '' }}</td>
+                        <td>
+                            <a href="{{ url_for('delete_item', id=i.id) }}"
+                               class="btn btn-sm btn-danger"
+                               onclick="return confirm('Delete this item?')">
+                               Delete
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No items found. Add your first item above.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Mobile Cards -->
+        <div class="table-mobile-card">
+            {% for i in items %}
+            <div class="mobile-card">
+                <div class="mobile-card-header">{{ i.name }}</div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Category</span>
+                    <span class="mobile-card-value">{{ i.category or '-' }}</span>
+                </div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Unit</span>
+                    <span class="mobile-card-value">{{ i.unit or '-' }}</span>
+                </div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Purchase Price</span>
+                    <span class="mobile-card-value">Rs {{ "%.2f"|format(i.purchase_price) if i.purchase_price else '-' }}</span>
+                </div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Sale Price</span>
+                    <span class="mobile-card-value"><strong>Rs {{ "%.2f"|format(i.sale_price) if i.sale_price else '-' }}</strong></span>
+                </div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Stock</span>
+                    <span class="mobile-card-value">{{ "%.2f"|format(i.stock_quantity) if i.stock_quantity else '0' }} {{ i.unit or '' }}</span>
+                </div>
+                <div class="mobile-card-row">
+                    <span class="mobile-card-label">Actions</span>
+                    <span class="mobile-card-value">
+                        <a href="{{ url_for('delete_item', id=i.id) }}"
+                           class="btn btn-sm btn-danger"
+                           onclick="return confirm('Delete this item?')">
+                           Delete
+                        </a>
+                    </span>
+                </div>
+            </div>
+            {% else %}
+            <div class="mobile-card text-center text-muted">
+                No items found. Add your first item above.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

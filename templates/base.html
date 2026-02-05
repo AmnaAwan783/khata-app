@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dr Zeeshan Awan Store</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="description" content="Medical store billing and inventory management system">
+    <meta name="theme-color" content="#0d6efd">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    
+    <!-- Apple Touch Icons (iOS) -->
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- Stylesheets -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/theme.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('home') }}">Dr Zeeshan Awan Store</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('customers') }}">Customers</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('add_sale') }}">Add Sale</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('sales') }}">Daily Sales</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('items') }}">Items</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('stock') }}">Stock</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('customer_summary') }}">Summary</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('wholesaler_transactions') }}">Wholesalers</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Offline Indicator -->
+    <div id="offlineIndicator" class="offline-indicator">
+        ⚠️ You are offline. Data will be synced when connection is restored.
+    </div>
+
+    <!-- Main Content -->
+    <div class="app-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <!-- Offline Contact Browser - Uses app's customer database (works offline) -->
+    <script src="{{ url_for('static', filename='js/offline_contact_browser.js') }}"></script>
+    <!-- Contact Picker - Load globally for all pages -->
+    <script src="{{ url_for('static', filename='js/contact_picker.js') }}"></script>
+
+    <!-- Service Worker Registration -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('{{ url_for("static", filename="service-worker.js") }}')
+                .then((registration) => {
+                    console.log('Service Worker registered:', registration);
+                })
+                .catch((error) => {
+                    console.log('Service Worker registration failed:', error);
+                });
+        });
+    }
+
+    // Update offline indicator
+    window.addEventListener('online', () => {
+        const indicator = document.getElementById('offlineIndicator');
+        if (indicator) {
+            indicator.classList.remove('show');
+        }
+    });
+
+    window.addEventListener('offline', () => {
+        const indicator = document.getElementById('offlineIndicator');
+        if (indicator) {
+            indicator.classList.add('show');
+        }
+    });
+
+    // Check initial status
+    if (!navigator.onLine) {
+        const indicator = document.getElementById('offlineIndicator');
+        if (indicator) {
+            indicator.classList.add('show');
+        }
+    }
+    </script>
+</body>
+</html>

@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    /* Summary cards use compact Bootstrap look */
+    .summary-card { padding: 1rem; border-radius: .5rem; margin-bottom: 1rem; color: #fff }
+    .summary-card .label { font-size: .85rem; opacity: .9 }
+    .summary-card .amount { font-size: 1.35rem; font-weight: 700 }
+    .summary-card.bg-primary { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%) }
+    .summary-card.bg-success { background: linear-gradient(135deg,#2dd4bf 0%,#10b981 100%) }
+    .summary-card.bg-warning { background: linear-gradient(135deg,#f59e0b 0%,#f97316 100%) }
+    .transaction-table td { vertical-align:middle; padding:8px 6px }
+    .transaction-table th { font-size:.85rem }
+    .balance-amount { font-weight:700; color:#0d6efd }
+    .status-paid { background-color:#d4edda; color:#155724; padding:4px 8px; border-radius:4px; font-size:0.85rem; font-weight:700 }
+    .wholesaler-header { gap:1rem; display:flex; justify-content:space-between; align-items:flex-start; }
+    .action-buttons { display:flex; gap:.5rem; margin-left:auto; }
+    @media (max-width:576px) {
+        .wholesaler-header { flex-direction:column; }
+        .action-buttons { flex-direction:column; width:100%; margin-left:0; }
+        .action-buttons .btn { width:100% }
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="header-section">
+        <div class="wholesaler-header">
+            <div>
+                <h1>{{ wholesaler.name }}</h1>
+                {% if wholesaler.phone %}<p class="text-muted mb-1">📞 {{ wholesaler.phone }}</p>{% endif %}
+                {% if wholesaler.address %}<p class="text-muted">📍 {{ wholesaler.address }}</p>{% endif %}
+            </div>
+            <div class="action-buttons">
+                <a href="{{ url_for('wholesaler_transactions') }}" class="btn btn-outline-secondary">← Back</a>
+                <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editWholesalerModal">Edit</button>
+                <a href="{{ url_for('delete_wholesaler', id=wholesaler.id) }}" class="btn btn-danger" onclick="return confirm('Delete this wholesaler and all transactions? This cannot be undone.')">Delete</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3 mb-4">
+        <div class="col">
+            <div class="summary-card bg-primary">
+                <div class="label">Total Bill Amount</div>
+                <div class="amount">Rs {{ "%.2f"|format(total_bill) }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="summary-card bg-success">
+                <div class="label">Amount Paid</div>
+                <div class="amount">Rs {{ "%.2f"|format(total_paid) }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="summary-card bg-warning">
+                <div class="label">{% if balance>0 %}Due Amount{% elif balance<0 %}Overpaid{% else %}Status{% endif %}</div>
+                <div class="amount">Rs {{ "%.2f"|format(abs_balance) }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="summary-card" style="background:#6c757d">
+                <div class="label">Total Transactions</div>
+                <div class="amount">{{ transactions|length }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white"><h5 class="mb-0">Transaction History</h5></div>
+        <div class="card-body p-0">
+            {% if transactions %}
+                <!-- Desktop Table View -->
+                <div class="d-none d-lg-block table-responsive">
+                    <table class="table table-hover table-sm transaction-table align-middle mb-0">
+                        <thead class="table-light small"><tr>
+                            <th>Date</th>
+                            <th>Item</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Price</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-end">Paid</th>
+                            <th class="text-end">Balance</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Action</th>
+                        </tr></thead>
+                        <tbody>
+                            {% for transaction in transactions %}
+                                {% set t_balance = transaction.total_price - transaction.paid_amount %}
+                                {% set t_balance_abs = t_balance if t_balance>=0 else -t_balance %}
+                                <tr>
+                                    <td class="small text-nowrap">{{ transaction.date.strftime('%d-%m-%Y') }}<br><small class="text-muted">{{ transaction.date.strftime('%H:%M') }}</small></td>
+                                    <td style="min-width:200px"><strong>{{ transaction.item_name }}</strong>{% if transaction.notes %}<div class="small text-muted">{{ transaction.notes }}</div>{% endif %}</td>
+                                    <td class="text-end">{{ "%.2f"|format(transaction.quantity) }}</td>
+                                    <td class="text-end">Rs {{ "%.2f"|format(transaction.price_per_unit) }}</td>
+                                    <td class="text-end"><strong>Rs {{ "%.2f"|format(transaction.total_price) }}</strong></td>
+                                    <td class="text-end">Rs {{ "%.2f"|format(transaction.paid_amount) }}</td>
+                                    <td class="text-end"><span class="balance-amount">Rs {{ "%.2f"|format(t_balance) }}</span></td>
+                                    <td class="text-center small">{% if t_balance>0 %}<span class="text-warning">Due</span>{% elif t_balance<0 %}<span class="text-success">Overpaid</span>{% else %}<span class="status-paid">Settled</span>{% endif %}</td>
+                                    <td class="text-center text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary me-1" data-bs-toggle="modal" data-bs-target="#editTransactionModal-{{ transaction.id }}">Edit</button>
+                                        <a href="{{ url_for('delete_wholesaler_transaction', id=transaction.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Delete this transaction?')">Delete</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Card View -->
+                <div class="d-lg-none">
+                    {% for transaction in transactions %}
+                        {% set t_balance = transaction.total_price - transaction.paid_amount %}
+                        {% set t_balance_abs = t_balance if t_balance>=0 else -t_balance %}
+                        <div class="p-3 border-bottom">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <div class="fw-bold">{{ transaction.item_name }}</div>
+                                    <small class="text-muted">{{ transaction.date.strftime('%d-%m-%Y %H:%M') }}</small>
+                                    {% if transaction.notes %}<div class="small text-muted mt-1">{{ transaction.notes }}</div>{% endif %}
+                                </div>
+                                <span class="small {% if t_balance>0 %}text-warning{% elif t_balance<0 %}text-success{% else %}text-success{% endif %}">
+                                    {% if t_balance>0 %}Due{% elif t_balance<0 %}Overpaid{% else %}Settled{% endif %}
+                                </span>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6"><small class="text-muted">Qty:</small> <strong>{{ "%.2f"|format(transaction.quantity) }}</strong></div>
+                                <div class="col-6 text-end"><small class="text-muted">Price:</small> <strong>Rs {{ "%.2f"|format(transaction.price_per_unit) }}</strong></div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6"><small class="text-muted">Total:</small> <strong>Rs {{ "%.2f"|format(transaction.total_price) }}</strong></div>
+                                <div class="col-6 text-end"><small class="text-muted">Paid:</small> <strong>Rs {{ "%.2f"|format(transaction.paid_amount) }}</strong></div>
+                            </div>
+                            <div class="mb-2"><small class="text-muted">Balance:</small> <span class="balance-amount">Rs {{ "%.2f"|format(t_balance) }}</span></div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary flex-grow-1" data-bs-toggle="modal" data-bs-target="#editTransactionModal-{{ transaction.id }}">Edit</button>
+                                <a href="{{ url_for('delete_wholesaler_transaction', id=transaction.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Delete this transaction?')">Delete</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% for transaction in transactions %}
+                    <div class="modal fade" id="editTransactionModal-{{ transaction.id }}" tabindex="-1" aria-labelledby="editTransactionModalLabel-{{ transaction.id }}" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="editTransactionModalLabel-{{ transaction.id }}">Edit Transaction</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <form method="post" action="{{ url_for('edit_wholesaler_transaction', id=transaction.id) }}">
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Item Name</label>
+                                            <input type="text" class="form-control" name="item_name" required value="{{ transaction.item_name }}">
+                                        </div>
+                                        <div class="mb-3 row">
+                                            <div class="col-6">
+                                                <label class="form-label">Quantity</label>
+                                                <input id="txnQty-{{ transaction.id }}" type="number" step="0.01" class="form-control" name="quantity" required value="{{ "%.2f"|format(transaction.quantity) }}">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label">Price / Unit</label>
+                                                <input id="txnPrice-{{ transaction.id }}" type="number" step="0.01" class="form-control" name="price_per_unit" required value="{{ "%.2f"|format(transaction.price_per_unit) }}">
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Amount Paid</label>
+                                            <input id="txnPaid-{{ transaction.id }}" type="number" step="0.01" class="form-control" name="paid_amount" value="{{ "%.2f"|format(transaction.paid_amount) }}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Transaction Date</label>
+                                            <input type="date" class="form-control" name="date" id="txnDate-{{ transaction.id }}" value="{{ transaction.date.strftime('%Y-%m-%d') }}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Total Amount</label>
+                                            <input type="text" readonly class="form-control-plaintext fw-bold" id="txnTotal-{{ transaction.id }}" value="Rs {{ '%.2f'|format(transaction.total_price) }}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Remaining Balance</label>
+                                            <input type="text" readonly class="form-control-plaintext text-danger fw-bold" id="txnBalance-{{ transaction.id }}" value="Rs {{ '%.2f'|format(transaction.total_price - transaction.paid_amount) }}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Notes</label>
+                                            <textarea class="form-control" name="notes" rows="2">{{ transaction.notes or '' }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary">Save</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+
+            {% else %}
+                <div class="alert alert-info" role="alert">No transactions recorded yet for this wholesaler.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mt-4"><a href="{{ url_for('wholesaler_transactions') }}" class="btn btn-outline-primary">← Back to Wholesalers</a></div>
+
+</div>
+
+<div class="modal fade" id="editWholesalerModal" tabindex="-1" aria-labelledby="editWholesalerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editWholesalerModalLabel">Edit Wholesaler</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{{ url_for('edit_wholesaler', id=wholesaler.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3"><label for="wholesalerName" class="form-label">Name</label><input type="text" class="form-control" id="wholesalerName" name="name" required value="{{ wholesaler.name }}"></div>
+                    <div class="mb-3"><label for="wholesalerPhone" class="form-label">Phone</label><input type="text" class="form-control" id="wholesalerPhone" name="phone" value="{{ wholesaler.phone or '' }}"></div>
+                    <div class="mb-3"><label for="wholesalerAddress" class="form-label">Address</label><textarea class="form-control" id="wholesalerAddress" name="address" rows="2">{{ wholesaler.address or '' }}</textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+{% for transaction in transactions %}
+(function(){
+    var qty = document.getElementById('txnQty-{{ transaction.id }}');
+    var price = document.getElementById('txnPrice-{{ transaction.id }}');
+    var paid = document.getElementById('txnPaid-{{ transaction.id }}');
+    var totalEl = document.getElementById('txnTotal-{{ transaction.id }}');
+    var balEl = document.getElementById('txnBalance-{{ transaction.id }}');
+    function updateTxn() {
+        var q = parseFloat(qty && qty.value ? qty.value : 0) || 0;
+        var p = parseFloat(price && price.value ? price.value : 0) || 0;
+        var paidVal = parseFloat(paid && paid.value ? paid.value : 0) || 0;
+        var total = q * p;
+        var bal = total - paidVal;
+        if (totalEl) totalEl.value = 'Rs ' + total.toFixed(2);
+        if (balEl) balEl.value = 'Rs ' + bal.toFixed(2);
+    }
+    if (qty) qty.addEventListener('input', updateTxn);
+    if (price) price.addEventListener('input', updateTxn);
+    if (paid) paid.addEventListener('input', updateTxn);
+})();
+{% endfor %}
+</script>
+
+<script>
+// Make modal FULLY interactive
+document.addEventListener('DOMContentLoaded', function(){
+    // Listen for ALL modal open events
+    document.querySelectorAll('.modal').forEach(function(modal){
+        modal.addEventListener('shown.bs.modal', function(){
+            console.log('===== Modal Shown =====');
+            
+            // 1. CRITICAL: Ensure form is interactive
+            var form = modal.querySelector('form');
+            if (form) {
+                form.style.pointerEvents = 'auto';
+                form.style.cursor = 'auto';
+            }
+            
+            // 2. Make every single element in modal interactive
+            modal.querySelectorAll('*').forEach(function(el){
+                el.style.pointerEvents = 'auto';
+            });
+            
+            // 3. Specifically fix all inputs and textareas
+            modal.querySelectorAll('input, textarea, button').forEach(function(el){
+                el.removeAttribute('readonly');
+                el.removeAttribute('disabled');
+                el.style.pointerEvents = 'auto';
+                el.style.cursor = el.tagName === 'BUTTON' ? 'pointer' : 'text';
+                
+                // Force interactive by adding event listeners
+                el.addEventListener('mousedown', function(e){
+                    e.preventDefault = function(){};
+                    e.stopPropagation = function(){};
+                }, true);
+                
+                el.addEventListener('click', function(e){
+                    this.focus();
+                }, true);
+                
+                if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                    el.addEventListener('keydown', function(e){
+                        // Allow all keystrokes
+                    }, true);
+                }
+            });
+            
+            console.log('Modal fully interactive');
+        });
+        
+        // Also handle before shown
+        modal.addEventListener('show.bs.modal', function(){
+            this.style.pointerEvents = 'auto';
+            this.style.display = 'block';
+        });
+    });
+});
+</script>
+
+{% endblock %}

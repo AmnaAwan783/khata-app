@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Customer Bills Overview</h2>
+
+<table class="table table-bordered table-striped">
+    <thead class="table-dark">
+        <tr>
+            <th>Customer</th>
+            <th>This Month Bill</th>
+            <th>This Month Paid</th>
+            <th>This Month Unpaid</th>
+            <th>Last Month Bill</th>
+            <th>Last Month Paid</th>
+            <th>Last Month Unpaid</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for row in customer_data %}
+        <tr>
+            <td>{{ row.customer.name }}</td>
+            <td>Rs {{ "%.2f"|format(row.this_total) }}</td>
+            <td>Rs {{ "%.2f"|format(row.this_paid) }}</td>
+            <td class="text-danger">Rs {{ "%.2f"|format(row.this_unpaid) }}</td>
+            <td>Rs {{ "%.2f"|format(row.last_total) }}</td>
+            <td>Rs {{ "%.2f"|format(row.last_paid) }}</td>
+            <td class="text-danger">Rs {{ "%.2f"|format(row.last_unpaid) }}</td>
+            <td>
+                <a href="{{ url_for('customer_detail', id=row.customer.id) }}"
+                   class="btn btn-sm btn-primary">
+                   View
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{{ url_for('home') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+
+{% endblock %}

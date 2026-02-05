@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Customer Monthly Summary</h2>
+
+<!-- Desktop Table -->
+<div class="table-responsive">
+    <table class="table table-bordered table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Customer</th>
+                <th>This Month Bill</th>
+                <th>This Month Unpaid</th>
+                <th>Last Month Bill</th>
+                <th>Last Month Unpaid</th>
+                <th>Total Unpaid</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in summary %}
+            <tr>
+                <td>{{ row.customer }}</td>
+                <td>Rs {{ "%.2f"|format(row.this_month_bill) }}</td>
+                <td class="text-danger">Rs {{ "%.2f"|format(row.this_month_unpaid) }}</td>
+                <td>Rs {{ "%.2f"|format(row.last_month_bill) }}</td>
+                <td class="text-danger">Rs {{ "%.2f"|format(row.last_month_unpaid) }}</td>
+                <td class="text-danger fw-bold">Rs {{ "%.2f"|format(row.total_unpaid) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Mobile Cards -->
+<div class="table-mobile-card">
+    {% for row in summary %}
+    <div class="mobile-card">
+        <div class="mobile-card-header">{{ row.customer }}</div>
+        <div class="mobile-card-row">
+            <span class="mobile-card-label">This Month Bill</span>
+            <span class="mobile-card-value">Rs {{ "%.2f"|format(row.this_month_bill) }}</span>
+        </div>
+        <div class="mobile-card-row">
+            <span class="mobile-card-label">This Month Unpaid</span>
+            <span class="mobile-card-value text-danger">Rs {{ "%.2f"|format(row.this_month_unpaid) }}</span>
+        </div>
+        <div class="mobile-card-row">
+            <span class="mobile-card-label">Last Month Bill</span>
+            <span class="mobile-card-value">Rs {{ "%.2f"|format(row.last_month_bill) }}</span>
+        </div>
+        <div class="mobile-card-row">
+            <span class="mobile-card-label">Last Month Unpaid</span>
+            <span class="mobile-card-value text-danger">Rs {{ "%.2f"|format(row.last_month_unpaid) }}</span>
+        </div>
+        <div class="mobile-card-row">
+            <span class="mobile-card-label">Total Unpaid</span>
+            <span class="mobile-card-value text-danger fw-bold">Rs {{ "%.2f"|format(row.total_unpaid) }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

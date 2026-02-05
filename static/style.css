@@ -1,0 +1,11 @@
+/**
+ * Legacy styles - kept for backward compatibility
+ * New theme is in static/css/theme.css
+ * This file only contains overrides and legacy support
+ */
+
+/* Ensure theme.css takes precedence */
+@import url('css/theme.css');
+
+/* Legacy overrides - minimal, only if needed */
+/* Most styles are now in theme.css */
