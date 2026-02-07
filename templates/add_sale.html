@@ -43,6 +43,21 @@
                 </select>
             </div>
 
+            <!-- Stock Display Field -->
+            <div class="mb-3">
+                <label class="form-label">Available Stock</label>
+                <div class="input-group">
+                    <span class="input-group-text">📦</span>
+                    <input 
+                        type="text" 
+                        id="stockDisplay" 
+                        class="form-control" 
+                        readonly 
+                        value="--"
+                        style="font-weight: 600; font-size: 16px; background-color: #f0f8ff;">
+                </div>
+            </div>
+
             <div class="mb-3">
                 <label class="form-label">Quantity <span class="text-danger">*</span></label>
                 <input 
@@ -326,14 +341,38 @@ function updatePrice() {
     if (selectedOption.value) {
         const price = selectedOption.getAttribute('data-price');
         const stock = selectedOption.getAttribute('data-stock');
+        const unit = selectedOption.getAttribute('data-unit');
         document.getElementById('unitPrice').value = price || 0;
         
-        // Show stock warning if low
-        if (stock && parseFloat(stock) < 10) {
-            // Could add a visual indicator here
+        // Update stock display with unit
+        const stockDisplay = document.getElementById('stockDisplay');
+        if (stock !== null && stock !== undefined) {
+            const stockValue = parseFloat(stock);
+            stockDisplay.value = `${stockValue.toFixed(2)} ${unit || 'Units'}`;
+            
+            // Color code based on stock level
+            if (stockValue <= 0) {
+                stockDisplay.style.color = '#dc3545'; // Red for out of stock
+                stockDisplay.style.backgroundColor = '#ffe0e0';
+            } else if (stockValue < 10) {
+                stockDisplay.style.color = '#ff6b6b'; // Orange for low stock
+                stockDisplay.style.backgroundColor = '#fff3cd';
+            } else {
+                stockDisplay.style.color = '#28a745'; // Green for good stock
+                stockDisplay.style.backgroundColor = '#f0f8ff';
+            }
+        } else {
+            stockDisplay.value = '-- Units';
+            stockDisplay.style.color = '#666';
+            stockDisplay.style.backgroundColor = '#f0f8ff';
         }
         
         calculateTotal();
+    } else {
+        // Reset stock display when no item selected
+        document.getElementById('stockDisplay').value = '--';
+        document.getElementById('stockDisplay').style.color = '#666';
+        document.getElementById('stockDisplay').style.backgroundColor = '#f0f8ff';
     }
 }
 

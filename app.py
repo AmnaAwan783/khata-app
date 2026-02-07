@@ -80,6 +80,8 @@ class WholesalerTransaction(db.Model):
     wholesaler_id = db.Column(db.Integer, db.ForeignKey('wholesaler.id'), nullable=False)
     
     item_name = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(50))
+    unit = db.Column(db.String(20))
     quantity = db.Column(db.Float, nullable=False)
     price_per_unit = db.Column(db.Float, nullable=False)
     total_price = db.Column(db.Float, nullable=False)
@@ -561,6 +563,8 @@ def wholesaler_transactions():
     if request.method == "POST":
         wholesaler_id = request.form.get("wholesaler_id")
         item_name = request.form.get("item_name")
+        category = request.form.get("category", "")
+        unit = request.form.get("unit", "")
         quantity = float(request.form.get("quantity", 0))
         price_per_unit = float(request.form.get("price_per_unit", 0))
         paid_amount = float(request.form.get("paid_amount", 0))
@@ -585,6 +589,12 @@ def wholesaler_transactions():
             # If sale_price is not set, keep it same as purchase price
             if not item.sale_price:
                 item.sale_price = price_per_unit
+            # Update category if provided
+            if category:
+                item.category = category
+            # Update unit if provided
+            if unit:
+                item.unit = unit
             # Increase total purchased (stock_quantity) by purchased amount
             item.stock_quantity = (item.stock_quantity or 0) + quantity
             db.session.add(item)
@@ -592,7 +602,8 @@ def wholesaler_transactions():
             # Create a new Item using wholesaler data
             new_item = Item(
                 name=item_name,
-                unit=None,
+                category=category or None,
+                unit=unit or None,
                 purchase_price=price_per_unit,
                 sale_price=price_per_unit,
                 stock_quantity=quantity
@@ -603,6 +614,8 @@ def wholesaler_transactions():
         transaction = WholesalerTransaction(
             wholesaler_id=wholesaler_id,
             item_name=item_name,
+            category=category or None,
+            unit=unit or None,
             quantity=quantity,
             price_per_unit=price_per_unit,
             total_price=total_price,
@@ -844,12 +857,18 @@ def edit_wholesaler_transaction(id):
             item.purchase_price = price_per_unit
             if not item.sale_price:
                 item.sale_price = price_per_unit
+            # Update category and unit if provided
+            if request.form.get('category'):
+                item.category = request.form.get('category')
+            if request.form.get('unit'):
+                item.unit = request.form.get('unit')
             db.session.add(item)
         else:
             # No existing item found; create one with the new quantity
             created = Item(
                 name=item_name,
-                unit=None,
+                category=request.form.get('category') or None,
+                unit=request.form.get('unit') or None,
                 purchase_price=price_per_unit,
                 sale_price=price_per_unit,
                 stock_quantity=quantity
@@ -868,11 +887,17 @@ def edit_wholesaler_transaction(id):
             new_item.purchase_price = price_per_unit
             if not new_item.sale_price:
                 new_item.sale_price = price_per_unit
+            # Update category and unit if provided
+            if request.form.get('category'):
+                new_item.category = request.form.get('category')
+            if request.form.get('unit'):
+                new_item.unit = request.form.get('unit')
             db.session.add(new_item)
         else:
             created = Item(
                 name=item_name,
-                unit=None,
+                category=request.form.get('category') or None,
+                unit=request.form.get('unit') or None,
                 purchase_price=price_per_unit,
                 sale_price=price_per_unit,
                 stock_quantity=quantity
@@ -880,6 +905,8 @@ def edit_wholesaler_transaction(id):
             db.session.add(created)
 
     transaction.item_name = item_name
+    transaction.category = request.form.get('category') or None
+    transaction.unit = request.form.get('unit') or None
     transaction.quantity = quantity
     transaction.price_per_unit = price_per_unit
     transaction.total_price = quantity * price_per_unit
