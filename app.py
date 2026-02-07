@@ -2,8 +2,16 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from datetime import date
-from sqlalchemy import extract
+from sqlalchemy import extract, event
+from sqlalchemy.pool import QueuePool, NullPool
 import os
+import logging
+
+# ------------------
+# Logging Setup
+# ------------------
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ------------------
 # App Setup
@@ -15,19 +23,44 @@ os.makedirs(app.instance_path, exist_ok=True)
 
 # Database Configuration - Use environment variable or default to SQLite
 # For local development: uses instance/database.db
-# For Koyeb: set DATABASE_URL env variable to PostgreSQL connection string
+# For Koyeb/Supabase: set DATABASE_URL env variable to PostgreSQL connection string
 database_url = os.environ.get('DATABASE_URL')
 
 if database_url:
-    # For production (PostgreSQL on Koyeb)
-    # Fix PostgreSQL URL format if needed (psycopg2 compatibility)
+    # For production (PostgreSQL on Koyeb with Supabase)
+    logger.info(f"📊 Using PostgreSQL database")
+    
+    # Fix PostgreSQL URL format if needed
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    # For psycopg3, connection string format is: postgresql+psycopg://user:password@host:port/dbname
+    # Ensure it has the correct prefix
+    if database_url.startswith('postgresql://') and '+psycopg' not in database_url:
+        # If it's using psycopg (v3), add the driver specification
+        database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+    
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    
+    # Connection pooling for PostgreSQL (important for performance!)
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'poolclass': QueuePool,
+        'pool_size': 5,
+        'max_overflow': 10,
+        'pool_recycle': 3600,  # Recycle connections every hour
+        'pool_pre_ping': True,  # Verify connections before using them
+        'echo': True,  # Log SQL queries (disable in production if you want)
+    }
 else:
     # For development (SQLite)
+    logger.info(f"📁 Using SQLite database")
     db_path = os.path.join(app.instance_path, 'database.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    
+    # SQLite doesn't use pooling
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'check_same_thread': False,
+    }
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here-change-in-production')
@@ -100,13 +133,27 @@ def init_db():
     """Initialize database tables on app startup"""
     with app.app_context():
         try:
+            # Test database connection first
+            db.session.execute('SELECT 1')
+            db.session.commit()
+            logger.info("✓ Database connection successful")
+            
+            # Create tables
             db.create_all()
-            print("✓ Database tables initialized successfully")
+            logger.info("✓ Database tables initialized successfully")
+            
         except Exception as e:
-            print(f"✗ Error initializing database: {e}")
+            logger.error(f"✗ Error initializing database: {e}", exc_info=True)
+            # Don't crash the app if database is temporarily unavailable
+            # Just log the error
+            import traceback
+            traceback.print_exc()
 
 # Call init_db before handling requests
-init_db()
+try:
+    init_db()
+except Exception as e:
+    logger.error(f"✗ Failed to initialize database on startup: {e}")
 
 # ------------------
 # Routes
@@ -432,59 +479,76 @@ def add_sale():
     items = Item.query.all()
 
     if request.method == "POST":
-        sale_type = request.form.get("sale_type")  # "cash" or "credit"
-        item_id = request.form["item_id"]
-        quantity = float(request.form["quantity"])
-        unit_price = float(request.form["unit_price"])
-        paid_amount = float(request.form.get("paid_amount", 0))
+        try:
+            sale_type = request.form.get("sale_type")  # "cash" or "credit"
+            item_id = request.form["item_id"]
+            quantity = float(request.form["quantity"])
+            unit_price = float(request.form["unit_price"])
+            paid_amount = float(request.form.get("paid_amount", 0))
 
-        # Get item and check stock
-        item = Item.query.get_or_404(item_id)
-        
-        # Calculate sold quantity so far
-        sold_qty = db.session.query(
-            db.func.sum(Sale.quantity)
-        ).filter(Sale.item_id == item_id).scalar() or 0
-        
-        available_stock = item.stock_quantity - sold_qty
-        
-        # Check if stock is sufficient
-        if quantity > available_stock:
-            flash(f"Insufficient stock. Available: {available_stock} {item.unit}", "error")
-            return redirect(url_for("add_sale"))
-
-        total_price = quantity * unit_price
-
-        # For cash sales: customer_id is NULL, paid_amount equals total_price
-        # For credit sales: customer_id is set, paid_amount can be partial
-        customer_id = None
-        if sale_type == "credit":
-            customer_id = request.form.get("customer_id")
-            if not customer_id:
-                flash("Please select a customer for credit sale", "error")
+            # Get item and check stock
+            item = Item.query.get_or_404(item_id)
+            
+            # Calculate sold quantity so far
+            sold_qty = db.session.query(
+                db.func.sum(Sale.quantity)
+            ).filter(Sale.item_id == item_id).scalar() or 0
+            
+            available_stock = item.stock_quantity - sold_qty
+            
+            # Check if stock is sufficient
+            if quantity > available_stock:
+                flash(f"Insufficient stock. Available: {available_stock} {item.unit}", "error")
                 return redirect(url_for("add_sale"))
-        else:
-            # Cash sale - paid amount must equal total
-            paid_amount = total_price
 
-        sale = Sale(
-            customer_id=customer_id,
-            item_id=item_id,
-            quantity=quantity,
-            unit_price=unit_price,
-            total_price=total_price,
-            paid_amount=paid_amount
-        )
+            total_price = quantity * unit_price
 
-        db.session.add(sale)
-        db.session.commit()
+            # For cash sales: customer_id is NULL, paid_amount equals total_price
+            # For credit sales: customer_id is set, paid_amount can be partial
+            customer_id = None
+            if sale_type == "credit":
+                customer_id = request.form.get("customer_id")
+                if not customer_id:
+                    flash("Please select a customer for credit sale", "error")
+                    return redirect(url_for("add_sale"))
+            else:
+                # Cash sale - paid amount must equal total
+                paid_amount = total_price
 
-        # Redirect to invoice if credit sale, otherwise to daily sales
-        if sale_type == "credit" and customer_id:
-            return redirect(url_for("invoice", sale_id=sale.id))
-        else:
-            flash("Cash sale recorded successfully", "success")
-            return redirect(url_for("sales"))
+            sale = Sale(
+                customer_id=customer_id,
+                item_id=item_id,
+                quantity=quantity,
+                unit_price=unit_price,
+                total_price=total_price,
+                paid_amount=paid_amount
+            )
+
+            db.session.add(sale)
+            try:
+                db.session.commit()
+                logger.info(f"✓ Sale created successfully: Item {item_id}, Qty {quantity}")
+            except Exception as db_error:
+                db.session.rollback()
+                logger.error(f"✗ Error saving sale to database: {db_error}", exc_info=True)
+                flash(f"Database error while saving sale: {str(db_error)}", "error")
+                return redirect(url_for("add_sale"))
+
+            # Redirect to invoice if credit sale, otherwise to daily sales
+            if sale_type == "credit" and customer_id:
+                return redirect(url_for("invoice", sale_id=sale.id))
+            else:
+                flash("Cash sale recorded successfully", "success")
+                return redirect(url_for("sales"))
+                
+        except ValueError as ve:
+            logger.error(f"✗ Invalid input values: {ve}")
+            flash(f"Please check your input values: {str(ve)}", "error")
+            return redirect(url_for("add_sale"))
+        except Exception as e:
+            logger.error(f"✗ Unexpected error in add_sale: {e}", exc_info=True)
+            flash(f"An unexpected error occurred: {str(e)}", "error")
+            return redirect(url_for("add_sale"))
 
     return render_template(
         "add_sale.html",
