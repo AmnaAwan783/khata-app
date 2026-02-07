@@ -3,14 +3,34 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from datetime import date
 from sqlalchemy import extract
+import os
 
 # ------------------
 # App Setup
 # ------------------
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app = Flask(__name__, instance_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance'))
+
+# Create instance folder if it doesn't exist
+os.makedirs(app.instance_path, exist_ok=True)
+
+# Database Configuration - Use environment variable or default to SQLite
+# For local development: uses instance/database.db
+# For Koyeb: set DATABASE_URL env variable to PostgreSQL connection string
+database_url = os.environ.get('DATABASE_URL')
+
+if database_url:
+    # For production (PostgreSQL on Koyeb)
+    # Fix PostgreSQL URL format if needed (psycopg2 compatibility)
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    # For development (SQLite)
+    db_path = os.path.join(app.instance_path, 'database.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here-change-in-production')
 db = SQLAlchemy(app)
 
 # ------------------
