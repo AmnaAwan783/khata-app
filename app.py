@@ -70,6 +70,23 @@ class WholesalerTransaction(db.Model):
     notes = db.Column(db.String(500))
 
 # ------------------
+# Database Initialization
+# ------------------
+
+# Create all tables if they don't exist
+def init_db():
+    """Initialize database tables on app startup"""
+    with app.app_context():
+        try:
+            db.create_all()
+            print("✓ Database tables initialized successfully")
+        except Exception as e:
+            print(f"✗ Error initializing database: {e}")
+
+# Call init_db before handling requests
+init_db()
+
+# ------------------
 # Routes
 # ------------------
 
@@ -894,12 +911,12 @@ def service_worker():
 # Run App
 # ------------------
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()  # Creates database and tables if they don't exist
-    
-    # SSL/HTTPS configuration
     import ssl
     import os
+    
+    # Get port from environment variable or use default
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
     cert_file = 'cert.pem'
     key_file = 'key.pem'
@@ -911,21 +928,19 @@ if __name__ == "__main__":
         context.load_cert_chain(cert_file, key_file)
         
         print("Starting Flask app with HTTPS...")
-        print("Access at: https://localhost:5000")
-        print("Access from phone: https://YOUR_IP:5000")
+        print(f"Access at: https://localhost:{port}")
+        print(f"Access from phone: https://YOUR_IP:{port}")
         print("Note: Self-signed certificate - browser will show security warning")
         print("Click 'Advanced' -> 'Proceed' to continue\n")
         
         # Run on all interfaces (0.0.0.0) for mobile device access with HTTPS
-        app.run(host='0.0.0.0', port=5000, debug=True, ssl_context=context)
+        app.run(host='0.0.0.0', port=port, debug=debug_mode, ssl_context=context)
     else:
         print("SSL certificates not found!")
-        print("Generating SSL certificates...\n")
-        print("Run: python generate_cert.py")
-        print("Then restart the app.\n")
-        print("Starting Flask app with HTTP (not secure)...")
-        print("Contact Picker API requires HTTPS to work.\n")
+        print("Starting Flask app with HTTP...")
+        print(f"Access at: http://localhost:{port}")
+        print(f"Access from phone: http://YOUR_IP:{port}\n")
         
         # Fallback to HTTP if certificates don't exist
         # Run on all interfaces (0.0.0.0) for mobile device access
-        app.run(host='0.0.0.0', port=5000, debug=True)
+        app.run(host='0.0.0.0', port=port, debug=debug_mode)
