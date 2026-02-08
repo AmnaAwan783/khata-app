@@ -481,7 +481,12 @@ def add_sale():
     if request.method == "POST":
         try:
             sale_type = request.form.get("sale_type")  # "cash" or "credit"
-            item_id = request.form["item_id"]
+            # Ensure form-provided IDs are integers for PostgreSQL
+            try:
+                item_id = int(request.form["item_id"])
+            except (ValueError, TypeError, KeyError):
+                flash("Invalid item selected", "error")
+                return redirect(url_for("add_sale"))
             quantity = float(request.form["quantity"])
             unit_price = float(request.form["unit_price"])
             paid_amount = float(request.form.get("paid_amount", 0))
@@ -507,9 +512,14 @@ def add_sale():
             # For credit sales: customer_id is set, paid_amount can be partial
             customer_id = None
             if sale_type == "credit":
-                customer_id = request.form.get("customer_id")
-                if not customer_id:
+                cust_raw = request.form.get("customer_id")
+                if not cust_raw:
                     flash("Please select a customer for credit sale", "error")
+                    return redirect(url_for("add_sale"))
+                try:
+                    customer_id = int(cust_raw)
+                except (ValueError, TypeError):
+                    flash("Invalid customer selected", "error")
                     return redirect(url_for("add_sale"))
             else:
                 # Cash sale - paid amount must equal total
@@ -625,7 +635,142 @@ def wholesaler_transactions():
     wholesalers = Wholesaler.query.all()
     
     if request.method == "POST":
-        wholesaler_id = request.form.get("wholesaler_id")
+        # Ensure wholesaler_id is an integer (PostgreSQL-safe)
+        wholesaler_id_raw = request.form.get("wholesaler_id")
+        if not wholesaler_id_raw:
+            flash("Please select or add a wholesaler", "error")
+            return redirect(url_for("wholesaler_transactions"))
+        try:
+            wholesaler_id = int(wholesaler_id_raw)
+        except (ValueError, TypeError):
+            flash("Invalid wholesaler selected", "error")
+            return redirect(url_for("wholesaler_transactions"))
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        item_name = request.form.get("item_name")
         item_name = request.form.get("item_name")
         category = request.form.get("category", "")
         unit = request.form.get("unit", "")
